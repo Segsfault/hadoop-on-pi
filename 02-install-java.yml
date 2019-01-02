@@ -1,0 +1,32 @@
+---
+- name: Set Java up on the RPi cluster
+  hosts: all
+  become: true
+  tasks:
+    - block:
+      - name: (INSTALL) Checking if Java is already installed
+        stat:
+          path: "/opt/{{ java_version }}"
+        register: javadir
+      - name: (INSTALL) Unarchiving Java
+        unarchive:
+          src: "{{ item }}"
+          dest: /opt
+        with_items:
+          - "{{ java_installer_path }}"
+        when: javadir.stat.exists == false
+      - name: Add java home environment var to bashrc
+        lineinfile:
+          path: /home/hduser/.bashrc
+          regexp: 'export JAVA_HOME'
+          line: 'export JAVA_HOME=/opt/{{ java_version }}/jre'
+      - name: Add java path  environment vars to bashrc
+        lineinfile:
+          path: /home/hduser/.bashrc
+          regexp: 'export PATH=\$PATH:\$JAVA_HOME'
+          insertafter: 'export JAVA_HOME'
+          line: 'export PATH=$PATH:$JAVA_HOME/bin:$JAVA_HOME/../bin'
+      vars:
+        installer_dir: "./installers"
+        java_version: "jdk1.8.0_191"
+        java_installer_path: "{{ installer_dir }}/jdk-8u191-linux-arm32-vfp-hflt.tar.gz"

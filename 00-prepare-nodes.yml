@@ -1,0 +1,18 @@
+---
+- hosts: all
+  become: true
+  tasks:
+  - name: add cluster ips to hosts file 
+    blockinfile:
+      path: /etc/hosts
+      block: | 
+        10.10.1.100    master
+        10.10.1.101    node-01
+        10.10.1.102    node-02
+        10.10.1.103    node-03
+        10.10.1.104    node-04
+  - name: Comment out second loopback address (breaks cluster otherwise)
+    replace:
+      path: /etc/hosts
+      regexp: '(^127.0.1.1.*)'
+      replace: '#\1'

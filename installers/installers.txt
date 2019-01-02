@@ -1,0 +1,6 @@
+In this directory are placed the downloaded tarballs for hive, hadoop, and java.
+
+This repo was developed using the following:
+  apache-hive-3.1.1-bin.tar.gz
+  hadoop-3.1.1.tar.gz
+  jdk-8u191-linux-arm32-vfp-hflt.tar.gz

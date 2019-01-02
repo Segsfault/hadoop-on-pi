@@ -1,0 +1,57 @@
+---
+- name: Install Hive on the RPi cluster master
+  hosts: master
+  become: True
+  tasks:
+    - block:
+      - name: (INSTALL) Checking if hive is already installed
+        stat:
+          path: "/opt/{{ hive_version }}"
+        register: hivedir
+
+      - name: Creates hive install directory
+        file:
+          path: '/opt/{{ hive_version }}'
+          state: directory
+          owner: hduser
+          group: hadoop
+        when: hivedir.stat.exists == false
+
+      - name: (INSTALL) Unarchiving hive
+        unarchive:
+          src: '{{ item }}'
+          dest: '/opt/{{ hive_version }}'
+          extra_opts: [--strip-components=1]
+          owner: hduser
+          group: hadoop
+        with_items:
+          - "{{ hive_installer_path }}"
+        when: hivedir.stat.exists == false
+
+      - name: fix permissions workaround
+        file:
+          dest: '/opt/{{ hive_version }}'
+          owner: hduser
+          group: hadoop
+          recurse: yes
+
+      - name: Add HIVE_HOME environment var to bashrc
+        lineinfile:
+          path: /home/hduser/.bashrc
+          regexp: 'export HIVE_HOME'
+          line: 'export HIVE_HOME=/opt/{{ hive_version }}'
+
+      - name: Add HIVE executables to path
+        lineinfile:
+          path: /home/hduser/.bashrc
+          regexp: 'export PATH=\$PATH:\$HIVE_HOME/bin'
+          insertafter: 'export HIVE_HOME'
+          line: 'export PATH=$PATH:$HIVE_HOME/bin'
+
+      vars:
+        installer_dir: "./installers"
+        hive_version: "hive-3.1.1"
+        hive_installer_path: "{{ installer_dir }}/apache-{{ hive_version }}-bin.tar.gz"
+
+
+

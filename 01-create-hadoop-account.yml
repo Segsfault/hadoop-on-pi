@@ -1,0 +1,60 @@
+---
+- name: Create hadoop accounts
+  hosts: all
+  become: true
+  tasks:
+    - name: Create the hadoop group
+      group:  name=hadoop state=present
+
+    - name: Create Hadoop user and generate SSH key
+      user:
+        name: 'hduser'
+        comment: Hadoop User
+        password: '{{ hadoop_user_password }}'
+        shell: /bin/bash
+        groups: hadoop, sudo
+        append: yes
+        generate_ssh_key: yes
+        ssh_key_bits: 2048
+        ssh_key_file: .ssh/id_rsa
+
+    - name        : Copy sudoers file for safety
+      command     : cp -f /etc/sudoers /etc/sudoers.tmp
+
+    - name        : Create sudoers file backup
+      command     : cp -f /etc/sudoers /etc/sudoers.bak
+
+    - name        : make sure we can sudo as hadoop group
+      lineinfile  : dest=/etc/sudoers.tmp state=present regexp='^%hadoop' line='%hadoop ALL=(ALL) NOPASSWD:ALL'
+
+    - name        : Final sudoers file check
+      shell       : visudo -q -c -f /etc/sudoers.tmp && cp -f /etc/sudoers.tmp /etc/sudoers
+
+    - name: Configure easier ls via bash
+      lineinfile:
+        path: /home/hduser/.bashrc
+        regexp: "    alias ls"
+        line: "    alias ls='ls -la --color=auto'"
+
+    - name: Allow passwordless SSH between all hosts (collect keys)
+      shell: /bin/cat /home/hduser/.ssh/id_rsa.pub
+      register: ssh_keys
+
+    - name: Allow passwordless SSH between all hosts (distribute keys)
+      lineinfile:
+        dest: /home/hduser/.ssh/authorized_keys
+        state: present
+        line:  " {{ hostvars[item]['ssh_keys']['stdout'] }}"
+        create: yes
+        owner: hduser
+        group: hduser
+        mode: 0600
+      with_items: "{{ groups['all']}}"
+
+  # On a raspberry, execute the following 2 lines
+  # sudo apt-get install -y whois
+  # mkpasswd --method=sha-512
+  # take the output string and enter it after the ':' below.  This is the hashed password
+
+  vars:
+    hadoop_user_password: 'insert hashed password here'

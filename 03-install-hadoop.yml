@@ -1,0 +1,114 @@
+---
+- name: Install Hadoop on the RPi cluster
+  hosts: all
+  become: True
+  tasks:
+    - block:
+      - name: (INSTALL) Checking if Hadoop is already installed
+        stat:
+          path: "/opt/{{ hadoop_version }}"
+        register: hadoopdir
+      - name: (INSTALL) Unarchiving hadoop
+        unarchive:
+          src: "{{ item }}"
+          dest: /opt
+          owner: hduser
+          group: hadoop
+        with_items:
+          - "{{ hadoop_installer_path }}"
+        when: hadoopdir.stat.exists == false
+      - name: Add environment var to bashrc
+        lineinfile:
+          path: /home/hduser/.bashrc
+          regexp: 'export HADOOP_HOME'
+          line: 'export HADOOP_HOME=/opt/{{ hadoop_version }}'
+      - name: Add hadoop environment vars to bashrc
+        blockinfile:
+          path: /home/hduser/.bashrc
+          insertafter: 'export HADOOP_HOME'
+          block: |
+            # -- HADOOP ENVIRONMENT VARIABLES -- #
+            export PATH=$PATH:$HADOOP_HOME/bin
+            export PATH=$PATH:$HADOOP_HOME/sbin
+            export HADOOP_MAPRED_HOME=$HADOOP_HOME
+            export HADOOP_COMMON_HOME=$HADOOP_HOME
+            export HADOOP_HDFS_HOME=$HADOOP_HOME
+            export YARN_HOME=$HADOOP_HOME
+            export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
+            export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOP_HOME/lib/native
+            export HADOOP_OPTS="-Djava.library.path=$HADOOP_HOME/lib"
+      - name: Update core-site.xml
+        copy:
+          src: "{{ config_dir }}/core-site.xml"
+          dest: "/opt/{{ hadoop_version }}/etc/hadoop/core-site.xml"
+          owner: hduser
+          group: hadoop
+          mode: 0644
+      - name:  Update hdfs-site.xml
+        copy:
+          src: "{{ config_dir }}/hdfs-site.xml"
+          dest: "/opt/{{ hadoop_version }}/etc/hadoop/hdfs-site.xml"
+          owner: hduser
+          group: hadoop
+          mode: 0644
+      - name: Update yarn-site.xml
+        copy:
+          src: "{{ config_dir }}/yarn-site.xml"
+          dest: "/opt/{{ hadoop_version }}/etc/hadoop/yarn-site.xml"
+          owner: hduser
+          group: hadoop
+          mode: 0644
+      - name: Update mapred-site.xml
+        copy:
+          src: "{{ config_dir }}/mapred-site.xml"
+          dest: "/opt/{{ hadoop_version }}/etc/hadoop/mapred-site.xml"
+          owner: hduser
+          group: hadoop
+          mode: 0644
+      - name: Update hadoop-env.sh
+        copy:
+          src: "{{ config_dir }}/hadoop-env.sh"
+          dest: "/opt/{{ hadoop_version }}/etc/hadoop/hadoop-env.sh"
+          owner: hduser
+          group: hadoop
+          mode: 0755
+      - name: Create datanode path
+        file:
+          path: /hdfs/datanode
+          state: directory
+          owner: hduser
+          group: hadoop
+          mode: 0750
+
+      vars:
+        installer_dir: "./installers"
+        config_dir: "./hadoop_config"
+        hadoop_version: "hadoop-3.1.1"
+        hadoop_installer_path: "{{ installer_dir }}/{{ hadoop_version }}.tar.gz"
+
+
+- name: Hadoop master only config
+  hosts: master
+  become: true
+  tasks:
+    - name: Create namenode path
+      file:
+        path: /hdfs/namenode
+        state: directory
+        owner: hduser
+        group: hadoop
+        mode: 0750
+    - name:  Update workers
+      copy:
+        src: "{{ config_dir }}/workers"
+        dest: "/opt/{{ hadoop_version }}/etc/hadoop/workers"
+        owner: hduser
+        group: hadoop
+        mode: 0644
+  vars:
+    installer_dir: "./installers"
+    config_dir: "./hadoop_config"
+    hadoop_version: "hadoop-3.1.1"
+    hadoop_installer_path: "{{ installer_dir }}/{{ hadoop_version }}.tar.gz"
+
+
